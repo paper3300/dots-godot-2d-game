@@ -1,0 +1,18 @@
+# Godot-generated cache and imported translations.
+.godot/
+*.translation
+
+# Export output; keep export_presets.cfg when presets are added.
+/builds/
+/exports/
+export_credentials.cfg
+
+# Local secrets and OS/editor files.
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.swp
+
+# Keep Godot .uid and asset .import sidecar files in version control.

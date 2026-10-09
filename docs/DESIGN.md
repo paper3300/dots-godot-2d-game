@@ -22,7 +22,7 @@ The intended first-run experience is 15–25 minutes, not yet a measured human-p
 
 ## Turn contract
 
-RunState is the only owner of turn advancement. A successful move, attack, wait, door opening, treatment, equipment swap, ground pickup, or cache/relic interaction advances one turn. Invalid commands, menus, trading, and contract dialogue advance none. Inn rest is an explicit 30-turn out-of-combat recovery service.
+RunState is the only owner of turn advancement. A successful move, attack, wait, door opening, treatment, equipment swap, item drop, ground pickup, or cache/relic interaction advances one turn. Invalid commands, menus, trading, and contract dialogue advance none. Inn rest is an explicit 30-turn out-of-combat recovery service.
 
 Order: validate → player action → pre-existing bleeding/needs → living enemies in stable order → cooldown/recovery → reveal. Newly inflicted bleeding does not tick immediately. Brace covers its cast turn and the next enemy turn. Hew interrupts the enemy response in its cast turn. Animation never triggers rules.
 
@@ -34,6 +34,8 @@ Enemies do not act after death. Player death halts the remainder of the enemy ph
 - Save files include a schema version. They are parsed/validated before live state changes.
 - Numeric JSON representation may change integers to floating-point variants, but gameplay state is compared after JSON normalization in tests.
 - Quest rewards are granted once. The quest item is consumed upon hand-in.
+- Item details expose effects and explicit Use/Equip/Drop controls without hover. Viewing/closing is free; successful use, equip, or drop costs one turn. A short pointer guard prevents a double tap on a closing item panel from moving the player underneath.
+- Dropped stacks persist, can be picked up again, and never include the quest relic. Found rewards are collected before voluntarily dropped items, so freeing a full pack slot remains useful.
 - Full inventory never deletes rejected ground loot. Equipment swaps preserve displaced equipment or reject the swap.
 - Water refill is capped at three carried flasks and cannot be sold, preventing a free-resource money loop.
 - Map arrival searches for a free tile if the preferred spawn is occupied.
@@ -47,5 +49,6 @@ Enemies do not act after death. Player death halts the remainder of the enemy ph
 - Text is designed for a 1280×800 viewport; small windows are scaled rather than reflowed.
 - No remappable keys, multi-slot saves, cloud-save sync, or gamepad controls.
 - No continuous movement from held keys. Repeated deliberate presses are required in combat.
+- Long hover tooltips may wrap an English word midword; the explicit item-detail panel provides a more readable alternative.
 - No published performance measurements or accessibility certification.
 - Desktop visual QA, export status, and concrete evidence belong in TESTING.md; source startup alone does not prove a platform's rendered build works.

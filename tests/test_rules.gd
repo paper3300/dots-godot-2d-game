@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_test_turns_and_combat()
 	_test_status_and_skills()
 	_test_inventory_and_economy()
+	_test_dropping()
 	_test_quest_and_save()
 	_test_world_and_replay()
 	_test_full_adventure()
@@ -164,6 +165,34 @@ func _test_inventory_and_economy() -> void:
 	s.player.bleed=5
 	s.player.injury=2
 	check(s.rest() and s.player.hp==64 and s.player.bleed==0 and s.player.injury==0,"inn cures and restores all condition")
+
+func _test_dropping() -> void:
+	var s := arena("")
+	check(not s.drop_item("unknown") and not s.drop_item("bandage",0) and not s.drop_item("bandage",99) and s.turn==0,"invalid drop quantities leave state unchanged")
+	var quantity := int(s.player.inventory.bandage)
+	check(s.drop_item("bandage",1) and s.player.inventory.bandage==quantity-1 and s.turn==1,"drop one consumes exactly one item and turn")
+	check(s.maps.road.loot.size()==1 and s.maps.road.loot[0].items.bandage==1,"dropped item remains on current tile")
+	check(s.drop_item("bandage",quantity-1) and not s.player.inventory.has("bandage") and s.maps.road.loot[0].items.bandage==quantity,"drop stack merges only into player-dropped pile and frees slot")
+	check(s.command("loot") and s.player.inventory.bandage==quantity and s.turn==3,"re-pickup conserves the entire dropped stack and costs one turn")
+	s.add_item("bell")
+	var before := s.turn
+	check(not s.drop_item("bell") and s.player.inventory.bell==1 and s.turn==before,"quest item cannot be dropped or lose a turn")
+	s=arena("")
+	for id in ["scrap","gem","fine_sword"]:
+		s.add_item(id)
+	check(s.pack_slots()==State.PACK_CAPACITY,"drop regression begins with full pack")
+	check(s.drop_item("gem") and s.pack_slots()==State.PACK_CAPACITY-1,"dropping last stack frees a full-pack slot")
+	# Reward arrives after the dropped pile, exercising pickup priority independently of creation order.
+	s.maps.road.loot.append({"x":11,"y":10,"coins":0,"items":{"mail":1}})
+	check(s.command("loot") and s.player.inventory.has("mail") and not s.player.inventory.has("gem"),"found loot takes freed slot before deliberately dropped loot")
+	check(s.maps.road.loot[0].items.gem==1,"unpicked discarded item is retained")
+	var restored := fresh()
+	check(restored.restore(JSON.parse_string(JSON.stringify(s.snapshot()))) and restored.maps.road.loot[0].items.gem==1,"dropped items and pickup priority survive save restore")
+	s=arena()
+	s.player.hp=1
+	check(s.drop_item("ration") and s.dead and s.maps.road.loot[0].items.ration==1,"dropping under attack advances enemies and preserves item on death")
+	before=s.turn
+	check(not s.drop_item("ration") and s.turn==before,"dead player cannot drop items")
 
 func _test_quest_and_save() -> void:
 	var s := fresh()

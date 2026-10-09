@@ -15,6 +15,8 @@ var buttons: Array = []
 var panel := "title"
 var back_panel := ""
 var has_started := false
+var detail_item := ""
+var pointer_guard_until := 0
 var tab := "journal"
 var selected_skill := ""
 var mouse := Vector2.ZERO
@@ -46,6 +48,11 @@ func _ready() -> void:
 		if arg == "--play":
 			panel = ""
 			has_started = true
+		if arg == "--show-item":
+			has_started = true
+			tab = "pack"
+			panel = "item"
+			detail_item = "bandage"
 		if arg == "--english":
 			state.language = "en"
 			state.new_game()
@@ -97,14 +104,7 @@ func _input(event: InputEvent) -> void:
 			move_path.clear()
 			return
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			for i in range(buttons.size() - 1, -1, -1):
-				var b: Dictionary = buttons[i]
-				if b.rect.has_point(mouse):
-					if b.enabled:
-						_button_action(b.action)
-					return
-			if panel.is_empty() and Rect2(ORIGIN, Vector2(832,576)).has_point(mouse):
-				_click_tile(Vector2i((mouse - ORIGIN) / TILE))
+			_pointer_press(mouse)
 	if event is not InputEventKey or not event.pressed or event.echo:
 		return
 	var key: int = event.keycode
@@ -148,6 +148,21 @@ func _input(event: InputEvent) -> void:
 		KEY_1: _select_skill("power")
 		KEY_2: _act("guard")
 		KEY_3: _select_skill("dash")
+
+func _pointer_press(at: Vector2) -> void:
+	mouse = at
+	# Coordinates are transformed by get_global_mouse_position before reaching here.
+	# A second tap must not leak through a closing item panel into the map.
+	if Time.get_ticks_msec() < pointer_guard_until:
+		return
+	for i in range(buttons.size() - 1, -1, -1):
+		var button: Dictionary = buttons[i]
+		if button.rect.has_point(mouse):
+			if button.enabled:
+				_button_action(button.action)
+			return
+	if panel.is_empty() and Rect2(ORIGIN, Vector2(832,576)).has_point(mouse):
+		_click_tile(Vector2i((mouse - ORIGIN) / TILE))
 
 func _key_direction(direction: Vector2i) -> void:
 	if selected_skill == "power":
@@ -204,7 +219,13 @@ func _interact() -> void:
 
 func _button_action(action: String) -> void:
 	move_path.clear()
-	if action.begins_with("tab:"):
+	if action.begins_with("inspect:"):
+		detail_item = action.trim_prefix("inspect:")
+		if state.player.inventory.has(detail_item):
+			back_panel = ""
+			panel = "item"
+			selected_skill = ""
+	elif action.begins_with("tab:"):
 		tab = action.trim_prefix("tab:")
 	elif action.begins_with("use:"):
 		_use(action.trim_prefix("use:"))
@@ -236,6 +257,9 @@ func _button_action(action: String) -> void:
 					floaters.clear()
 				else:
 					_toast(t("No valid save found. Your current journey is unchanged.", "유효한 저장이 없습니다. 현재 여정은 유지됩니다."))
+			"item_use": _item_action("use")
+			"item_drop_one": _item_action("drop_one")
+			"item_drop_all": _item_action("drop_all")
 			"save": _save()
 			"language": state.language = "en" if state.language == "ko" else "ko"
 			"sound": sound_on = not sound_on
@@ -269,9 +293,30 @@ func _button_action(action: String) -> void:
 	if panel == "start":
 		_button_action("start")
 
+func _item_action(action: String) -> void:
+	if panel != "item" or detail_item.is_empty() or not state.player.inventory.has(detail_item):
+		return
+	var done := false
+	match action:
+		"use": done = state.use_item(detail_item)
+		"drop_one": done = state.drop_item(detail_item, 1)
+		"drop_all": done = state.drop_item(detail_item, int(state.player.inventory[detail_item]))
+	if done:
+		pointer_guard_until = Time.get_ticks_msec() + 280
+		detail_item = ""
+		panel = ""
+		back_panel = ""
+		_after_action(true)
+	else:
+		_toast(t("That item cannot be used now. Nothing was spent.", "지금은 사용할 수 없습니다. 물품과 턴은 소모되지 않았습니다."))
+
 func _close_panel() -> void:
+	if not panel.is_empty():
+		pointer_guard_until = Time.get_ticks_msec() + 280
 	panel = "death" if state.dead else back_panel
 	back_panel = ""
+	if panel != "item":
+		detail_item = ""
 	if panel.is_empty() and not has_started:
 		panel = "title"
 
@@ -510,10 +555,14 @@ func _draw_object(o: Dictionary) -> void:
 	elif o.id.ends_with("cache"):
 		_sprite("chest",p,1.75,Color("777c70") if o.used else Color.WHITE)
 	elif o.id == "reliquary":
-		_sprite("bell",p,1.75)
+		if _relic_present():
+			_sprite("bell",p,1.75)
+		else:
+			draw_rect(Rect2(at+Vector2(5,22),Vector2(22,7)),Color("65736b"))
+			draw_rect(Rect2(at+Vector2(8,18),Vector2(16,5)),Color("879184"))
 	else:
 		_sprite(o.id,p,1.5)
-	if state.near_object(o.id) and not o.id.begins_with("exit_"):
+	if state.near_object(o.id) and not o.id.begins_with("exit_") and (o.id != "reliquary" or _relic_present()):
 		_text(at+Vector2(8,-14),"E",12,GOLD)
 
 func _draw_actor(actor: Dictionary, p: Vector2i) -> void:
@@ -588,13 +637,13 @@ func _draw_pack() -> void:
 	if state.player.inventory.has("bell"):
 		ids.append("bell")
 	for i in 9:
-		var rect := Rect2(899+(i%3)*113,341+(i/3)*53,108,46)
+		var rect := Rect2(899+(i%3)*113,341+floori(float(i)/3.0)*53,108,46)
 		if i<ids.size() and ids[i]!="":
 			var id: String = ids[i]
-			_button(rect,state.item_name(id)+" ×"+str(int(state.player.inventory[id])),"use:"+id,State.ITEMS[id].kind not in ["sell","quest"],false,_item_hint(id),11)
+			_button(rect,state.item_name(id)+" ×"+str(int(state.player.inventory[id])),"inspect:"+id,true,false,_item_hint(id),11)
 		else:
 			_box(rect,Color("17262b"),Color("2d413d"))
-	_text(Vector2(900,529),t("8 pack slots + quest pouch. Click to use / equip.","배낭 8칸 + 의뢰 주머니. 클릭: 사용 / 장착."),12,MUTED)
+	_text(Vector2(900,529),t("8 slots + quest pouch. Click an item for actions.","배낭 8칸 + 의뢰 주머니. 물품 클릭: 자세히."),12,MUTED)
 
 func _item_hint(id: String) -> String:
 	var hints := {
@@ -603,10 +652,10 @@ func _item_hint(id: String) -> String:
 		"tonic":t("Restores 25 HP. Does not treat injuries. [T]","체력 25 회복. 부상은 치료하지 않습니다. [T]"),
 		"ration":t("Reduces hunger by 45; restores 4 HP.","허기 45 감소, 체력 4 회복."),
 		"water":t("Reduces thirst by 50; restores 10 energy. Refillable; not sold.","갈증 50 감소, 기력 10 회복. 우물에서 보충 가능, 판매 불가."),
-		"sword":t("8 base attack. Click to equip.","기본 공격력 8. 클릭하여 장착."),
-		"fine_sword":t("12 base attack. Click to equip.","기본 공격력 12. 클릭하여 장착."),
-		"leather":t("2 armor. Click to equip.","방어력 2. 클릭하여 장착."),
-		"mail":t("4 armor. Click to equip.","방어력 4. 클릭하여 장착."),
+		"sword":t("8 base attack. Equip from the item panel.","기본 공격력 8. 물품 정보에서 장착."),
+		"fine_sword":t("12 base attack. Equip from the item panel.","기본 공격력 12. 물품 정보에서 장착."),
+		"leather":t("2 armor. Equip from the item panel.","방어력 2. 물품 정보에서 장착."),
+		"mail":t("4 armor. Equip from the item panel.","방어력 4. 물품 정보에서 장착."),
 		"scrap":t("Sell at the village shop for 4 crowns.","마을 상점에서 4 크라운에 판매 가능."),
 		"gem":t("Sell at the village shop for 10 crowns.","마을 상점에서 10 크라운에 판매 가능."),
 		"bell":t("Return this to the contract board.","의뢰 게시판에 가져가자.")}
@@ -640,8 +689,8 @@ func _draw_modal() -> void:
 	draw_rect(Rect2(rect.position,Vector2(rect.size.x,4)),GOLD)
 	if panel == "help":
 		_text(Vector2(258,172),t("THE ROAD HOME · FIELD GUIDE","돌아오는 길 · 여행 안내서"),24,GOLD)
-		var en := "EVERY ACTION MATTERS\nMove or attack with WASD / arrows. Click a nearby tile to step.\nSafe paths can be clicked to walk; movement stops when enemies appear.\nEnemies act only after you act. Menus and invalid actions cost no turns.\n\n1: Hew (+7 damage, interrupt)    2: Brace (two turns of protection)\n3: Sidestep (two clear tiles)    Space: wait and regain energy\nE: interact    G: collect loot    I: pack    B: bandage    T: tonic\nSelect a skill, then click a target or press a direction. Esc cancels.\n\nPREPARE, EXPLORE, RETURN\nAccept the board's contract. Buy supplies, refill water, and rest at the inn.\nThe east road leads to a six-room ruin. Recover its bell and return home.\nBleeding costs HP each turn. Injury lowers max HP. Treat both separately.\nWatch an enemy's ! tell: retreat, interrupt, or brace before the strike.\nK saves anywhere. L restores the last save. The inn saves after resting."
-		var ko := "한 번의 행동이 중요합니다\nWASD / 방향키로 이동·공격. 가까운 칸을 클릭해 한 칸 이동합니다.\n안전할 때 먼 곳을 클릭하면 자동 이동하며, 적을 발견하면 멈춥니다.\n내가 행동해야 적도 움직입니다. 메뉴와 실패한 행동은 턴을 쓰지 않습니다.\n\n1: 내려베기 (피해 +7, 행동 저지)    2: 방어 자세 (2턴 보호)\n3: 빠른 발걸음 (빈 공간 두 칸)    Space: 대기·기력 회복\nE: 상호작용    G: 줍기    I: 배낭    B: 붕대    T: 물약\n기술을 선택한 뒤 대상 클릭 또는 방향키를 누르세요. Esc로 취소합니다.\n\n준비하고, 탐험하고, 돌아오세요\n게시판 의뢰를 받고 물품을 준비하세요. 우물과 여관도 이용할 수 있습니다.\n동쪽 숲길 너머 여섯 방의 수도원에서 종을 찾아 마을로 귀환하세요.\n출혈은 턴마다 체력을 깎고 부상은 최대 체력을 줄입니다. 따로 치료하세요.\n적의 ! 표시는 강한 공격 예고입니다. 피하거나 기술로 저지하세요.\nK: 어디서나 저장. L: 최근 저장 불러오기. 여관은 숙박 후 자동 저장."
+		var en := "EVERY ACTION MATTERS\nMove or attack with WASD / arrows. Click a nearby tile to step.\nSafe paths can be clicked to walk; movement stops when enemies appear.\nEnemies act only after you act. Menus and invalid actions cost no turns.\n\n1: Hew (+7 damage, interrupt)    2: Brace (two turns of protection)\n3: Sidestep (two clear tiles)    Space: wait and regain energy\nE: interact    G: collect loot    I: pack/details    B: bandage    T: tonic\nSelect a skill, then click a target or press a direction. Esc cancels.\n\nPREPARE, EXPLORE, RETURN\nAccept the board's contract. Buy supplies, refill water, and rest at the inn.\nThe east road leads to a six-room ruin. Recover its bell and return home.\nBleeding costs HP each turn. Injury lowers max HP. Treat both separately.\nWatch an enemy's ! tell: retreat, interrupt, or brace before the strike.\nK saves anywhere. L restores the last save. The inn saves after resting."
+		var ko := "한 번의 행동이 중요합니다\nWASD / 방향키로 이동·공격. 가까운 칸을 클릭해 한 칸 이동합니다.\n안전할 때 먼 곳을 클릭하면 자동 이동하며, 적을 발견하면 멈춥니다.\n내가 행동해야 적도 움직입니다. 메뉴와 실패한 행동은 턴을 쓰지 않습니다.\n\n1: 내려베기 (피해 +7, 행동 저지)    2: 방어 자세 (2턴 보호)\n3: 빠른 발걸음 (빈 공간 두 칸)    Space: 대기·기력 회복\nE: 상호작용    G: 줍기    I: 배낭/물품 정보    B: 붕대    T: 물약\n기술을 선택한 뒤 대상 클릭 또는 방향키를 누르세요. Esc로 취소합니다.\n\n준비하고, 탐험하고, 돌아오세요\n게시판 의뢰를 받고 물품을 준비하세요. 우물과 여관도 이용할 수 있습니다.\n동쪽 숲길 너머 여섯 방의 수도원에서 종을 찾아 마을로 귀환하세요.\n출혈은 턴마다 체력을 깎고 부상은 최대 체력을 줄입니다. 따로 치료하세요.\n적의 ! 표시는 강한 공격 예고입니다. 피하거나 기술로 저지하세요.\nK: 어디서나 저장. L: 최근 저장 불러오기. 여관은 숙박 후 자동 저장."
 		_lines(Vector2(258,205),t(en,ko),16,TEXT,26)
 		_button(Rect2(822,635,196,37),t("Got it · Esc","알겠습니다 · Esc"),"close")
 		return
@@ -657,9 +706,12 @@ func _draw_modal() -> void:
 		var ids: Array = state.ordered_inventory()
 		for i in mini(9,ids.size()):
 			var id: String = ids[i]
-			_button(Rect2(652,222+i*40,370,34),state.item_name(id)+" ×"+str(int(state.player.inventory[id]))+"  ·  "+str(maxi(1,int(State.ITEMS[id].price)/2)),"sell:"+id,State.ITEMS[id].kind!="quest" and id!="water",false,_item_hint(id),14)
+			_button(Rect2(652,222+i*40,370,34),state.item_name(id)+" ×"+str(int(state.player.inventory[id]))+"  ·  "+str(maxi(1,floori(float(State.ITEMS[id].price)/2.0))),"sell:"+id,State.ITEMS[id].kind!="quest" and id!="water",false,_item_hint(id),14)
 		_button(Rect2(822,635,196,37),t("Leave shop","상점 나가기"),"close")
 		_text(Vector2(258,661),t("Trading is safe and costs no turns.","거래는 안전하며 턴을 소모하지 않습니다."),13,MUTED)
+		return
+	if panel == "item":
+		_draw_item_panel(rect)
 		return
 	var title := ""
 	var body := ""
@@ -667,7 +719,7 @@ func _draw_modal() -> void:
 		"pause": title=t("A MOMENT'S REST","잠시 쉬어 가기")
 		"board":
 			title=t("THE BELL IN THE BRIAR","가시나무 속의 종")
-			body=t("Our priory bell is missing.\nThe Hollow Warden holds the old halls.\n\nFollow the east road. Bring back the bell\nfrom the northeast chamber of the ruins.\n\nReward upon return: 90 crowns.","수도원의 종을 잃어버렸습니다.\n공허의 파수꾼이 옛 전당을 지키고 있습니다.\n\n동쪽 숲길을 따라 유적으로 가서\n북동쪽 방에 있는 종을 가져와 주세요.\n\n귀환 후 보수: 90 크라운.")
+			body=_board_story()
 		"inn":
 			title=t("THE GREEN LANTERN","초록 등불 여관")
 			body=t("A clean bed and a bowl of warm broth.\n\nRestore health and energy.\nTreat all bleeding, injuries, and pain.\nFood and water are included.\nYour journey is saved after resting.\n\nCost: %s crowns.","깨끗한 침대와 따뜻한 수프 한 그릇.\n\n체력과 기력을 모두 회복합니다.\n출혈, 부상, 통증을 치료합니다.\n식량과 물도 제공됩니다.\n숙박 후 여정을 자동 저장합니다.\n\n숙박비: %s 크라운.")%("0" if state.won else "10")
@@ -702,6 +754,40 @@ func _draw_modal() -> void:
 		"confirm_load": _button(Rect2(400,489,480,43),t("Restore saved journey","저장 불러오기"),"load",FileAccess.file_exists(State.SAVE_PATH))
 	if panel != "death":
 		_button(Rect2(400,607,480,34),t("Continue / cancel · Esc","계속 / 취소 · Esc"),"close")
+
+func _relic_present() -> bool:
+	return state.quest in ["available", "active"]
+
+func _board_story() -> String:
+	if state.quest == "complete":
+		return t("The bell has returned to Briarhaven.\nIts sound carries over the old road again.\n\nYour 90-crown reward has been paid.\nThe contract is complete.\n\nThe Green Lantern offers you a free bed.", "종이 가시나루로 돌아왔습니다.\n오래된 숲길에 다시 종소리가 울립니다.\n\n보수 90 크라운은 이미 지급되었습니다.\n의뢰가 완료되었습니다.\n\n초록 등불 여관에서 무료로 쉬어 가세요.")
+	if state.quest == "recovered":
+		return t("You have recovered the briar bell.\nBriarhaven has waited for this sound.\n\nHand over the bell to finish the contract\nand receive your 90-crown reward.", "가시나무 종을 회수했습니다.\n가시나루가 이 종소리를 기다렸습니다.\n\n종을 전달해 의뢰를 완료하고\n보수 90 크라운을 받으세요.")
+	return t("Our priory bell is missing.\nThe Hollow Warden holds the old halls.\n\nFollow the east road. Bring back the bell\nfrom the northeast chamber of the ruins.\n\nReward upon return: 90 crowns.", "수도원의 종을 잃어버렸습니다.\n공허의 파수꾼이 옛 전당을 지키고 있습니다.\n\n동쪽 숲길을 따라 유적으로 가서\n북동쪽 방에 있는 종을 가져와 주세요.\n\n귀환 후 보수: 90 크라운.")
+
+func _draw_item_panel(rect: Rect2) -> void:
+	if detail_item.is_empty() or not State.ITEMS.has(detail_item):
+		return
+	var item: Dictionary = State.ITEMS[detail_item]
+	var quantity := int(state.player.inventory.get(detail_item, 0))
+	_text(rect.position+Vector2(31,53),state.item_name(detail_item),24,GOLD)
+	_text(rect.position+Vector2(31,88),t("IN YOUR PACK: %d", "배낭 수량: %d") % quantity,15,MUTED)
+	var description := _item_hint(detail_item).split("\n", true, 1)
+	var body: String = description[1] if description.size() > 1 else ""
+	var lines := _wrap(body,472,17)
+	for i in lines.size():
+		_text(rect.position+Vector2(31,133+i*29),lines[i],17,TEXT)
+	var use_label := t("Use · 1 turn", "사용 · 1턴")
+	if item.kind in ["weapon", "armor"]:
+		use_label = t("Equip · 1 turn", "장착 · 1턴")
+	if item.kind == "quest":
+		_lines(rect.position+Vector2(31,230),t("Quest items stay in a separate pouch.\nThey cannot be dropped or sold.", "의뢰 물품은 별도의 주머니에 보관합니다.\n내려놓거나 판매할 수 없습니다."),16,MUTED,28)
+	else:
+		_lines(rect.position+Vector2(31,230),t("Dropped items stay on this tile.\nCollect them again with Loot [G].\nUsing, equipping, or dropping advances enemies.", "내려놓은 물품은 현재 칸에 남습니다.\n줍기 [G]로 다시 챙길 수 있습니다.\n사용·장착·내려놓기를 하면 적도 행동합니다."),15,MUTED,27)
+	_button(Rect2(400,483,480,43),use_label,"item_use",quantity>0 and item.kind not in ["sell", "quest"])
+	_button(Rect2(400,541,233,43),t("Drop one · 1 turn", "1개 내려놓기 · 1턴"),"item_drop_one",quantity>0 and item.kind!="quest")
+	_button(Rect2(647,541,233,43),t("Drop stack · 1 turn", "모두 내려놓기 · 1턴"),"item_drop_all",quantity>1 and item.kind!="quest")
+	_button(Rect2(400,607,480,34),t("Back to pack · no turn", "배낭으로 · 턴 소모 없음"),"close")
 
 func _draw_title() -> void:
 	_text(Vector2(165,208),t("AN ORIGINAL TACTICAL RPG", "독자 제작 턴제 탐험 RPG"),16,MUTED)

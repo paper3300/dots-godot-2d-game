@@ -24,6 +24,7 @@ run_check rules --headless --path "$project_dir" --script tests/test_rules.gd
 run_check ui --headless --path "$project_dir" --script tests/test_ui.gd
 if [ "${FULL_TESTS:-0}" = "1" ]; then
     run_check fuzz --headless --path "$project_dir" --script tests/fuzz_replay.gd
+    run_check drop_transactions --headless --path "$project_dir" --script tests/fuzz_drop_transactions.gd
 fi
 run_check startup --headless --path "$project_dir" --quit-after 5
 if ! grep -Fq 'Briar & Bone ready.' "$log_dir/startup.log"; then

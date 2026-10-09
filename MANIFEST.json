@@ -1,9 +1,9 @@
 {
-  "checkpoint": "003",
+  "checkpoint": "004",
   "title": "Briar & Bone",
   "engine": "Godot 4.6.3 stable",
-  "created_utc": "2026-10-09T15:01:15Z",
-  "verification": "124 rule checks + 24 UI-flow checks passed. Seeded fuzz: 57,992 assertions. Desktop Korean UI/input/save restoration verified. Windows runtime and hosted Web still pending.",
+  "created_utc": "2026-10-09T15:47:31.699285+00:00",
+  "verification": "137 rule and 39 UI checks; 58,436 replay and 15,181 transaction assertions. Native Linux complete quest/death/process persistence and item-modal QA passed. Windows, hosted browser, Android, and audible output not runtime-verified.",
   "files": [
     {
       "path": ".editorconfig",
@@ -22,8 +22,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 8727,
-      "sha256": "e69b42bae0a7314e5d6772e53403729738405666a46a437eab762e246d41c136"
+      "bytes": 9389,
+      "sha256": "e67a03a67baeb02c457e8f9267cec67a4db711138d74e9cddde730c4d059eafb"
     },
     {
       "path": "THIRD_PARTY_NOTICES.md",
@@ -197,13 +197,13 @@
     },
     {
       "path": "docs/DESIGN.md",
-      "bytes": 4108,
-      "sha256": "db4a5233daa9634c5ebad5045f19ddcb23389ac8b127cef395f48618f4e6396e"
+      "bytes": 4692,
+      "sha256": "1037add86866b655f9cc0020a598b08a672caa6461bb23e23cae6d7ee1508144"
     },
     {
       "path": "docs/TESTING.md",
-      "bytes": 4194,
-      "sha256": "f665c22b9faa2beef190ae8de6a2555bafbc15a456db241cdc45a9a02f69ee70"
+      "bytes": 6271,
+      "sha256": "2ddf563aa4b365f8bc9b7d4242a8b2e2129f16490a8e54d55f47e8fd03f7790c"
     },
     {
       "path": "export_presets.cfg",
@@ -212,8 +212,8 @@
     },
     {
       "path": "game/run_state.gd",
-      "bytes": 33249,
-      "sha256": "f57de10e5c7e22a1da616a2c38bf5ad5c83a699daab4e3bea5389fadcffcde69"
+      "bytes": 34590,
+      "sha256": "42e181b62a7a8d8bd6c3aeb7d1b482aa3c740cf101c58e3b141323c58aebb2c9"
     },
     {
       "path": "game/run_state.gd.uid",
@@ -227,8 +227,8 @@
     },
     {
       "path": "scenes/main.gd",
-      "bytes": 40285,
-      "sha256": "700ffad006a3a42f5786089fdfd4cd91b067d8112ab2dd28a67d3da9d0518214"
+      "bytes": 45085,
+      "sha256": "becb3b94b30f56a21a9aa08cc5f02662a8a876d8c8ca31c3058634ac796b795e"
     },
     {
       "path": "scenes/main.gd.uid",
@@ -242,8 +242,8 @@
     },
     {
       "path": "scripts/build-release.sh",
-      "bytes": 1153,
-      "sha256": "db086eda1cc6ae7618cd5794c56eb57a113bf812094bbaca1fb079acf8ad692f"
+      "bytes": 2634,
+      "sha256": "8b810804ce1204231fa6be4c7af542dd78a7813a53cff43ed8e3ffb0d53cc7ff"
     },
     {
       "path": "scripts/generate-art.py",
@@ -252,8 +252,8 @@
     },
     {
       "path": "scripts/smoke-test.sh",
-      "bytes": 1485,
-      "sha256": "aec112790f20fb1feb70cbd481aa5cb732698d26132ec0bec1b7e6a3b56a4b39"
+      "bytes": 1591,
+      "sha256": "233164715156995e9ed6f24373612281c6b1ba080e3992482ef3b1991f06ccc9"
     },
     {
       "path": "scripts/subset-font.py",
@@ -271,9 +271,19 @@
       "sha256": "5389fcf69c3e38dfb262e88850713633a45a75c05aed625a2a3ffd93b5ea7a27"
     },
     {
+      "path": "tests/fuzz_drop_transactions.gd",
+      "bytes": 4471,
+      "sha256": "73bd9648327fd479fb79095599700d4b9c8abecc6658696ba581ea84638b2eb2"
+    },
+    {
+      "path": "tests/fuzz_drop_transactions.gd.uid",
+      "bytes": 19,
+      "sha256": "c7de380dbcec8288f31675327214f198f32d8bae5829fcdfcc8868a8599bdcbe"
+    },
+    {
       "path": "tests/fuzz_replay.gd",
-      "bytes": 2528,
-      "sha256": "112a49a3e54858e5399f8fe5408afacae31cc16c34df2bf2ed3fdf625ef3692d"
+      "bytes": 2639,
+      "sha256": "c6530fa0a7b1aec0b68d923d17abd947f2f48b8b00d8de963f8798bc97ed99b3"
     },
     {
       "path": "tests/fuzz_replay.gd.uid",
@@ -282,8 +292,8 @@
     },
     {
       "path": "tests/test_rules.gd",
-      "bytes": 16254,
-      "sha256": "b09a38f00bc2cecf4114635d54b501e43f454c71eade0a4dc4bd5312dfeb785c"
+      "bytes": 18461,
+      "sha256": "0dc5556e2b3a17e03db102bd7c8163634c66b60c9442da2d142f208d9af080c7"
     },
     {
       "path": "tests/test_rules.gd.uid",
@@ -292,8 +302,8 @@
     },
     {
       "path": "tests/test_ui.gd",
-      "bytes": 3453,
-      "sha256": "6a2b9292101287a83d50e124f76e4950bf9125637e62765a4b215e695e6e65e2"
+      "bytes": 6927,
+      "sha256": "bbf2c50039d20c5071a5cfcd4ee0d7224e8c103d31f69a16a29646301936bb3f"
     },
     {
       "path": "tests/test_ui.gd.uid",

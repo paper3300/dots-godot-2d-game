@@ -33,6 +33,8 @@ func do_action(s,action,dir):
 		11:return s.use_item("splint")
 		12:return s.use_item("ration")
 		13:return s.use_item("water")
+		14:return s.drop_item("bandage",1)
+		15:return s.drop_item("ration",int(s.player.inventory.get("ration",0)))
 	return false
 func _initialize():
 	var rr=RandomNumberGenerator.new();rr.seed=552789
@@ -41,7 +43,7 @@ func _initialize():
 		s.area="road" if game%2==0 else "ruin"
 		s.player.x=1 if game%2==0 else 2;s.player.y=9 if game%2==0 else 14;s._reveal()
 		for step in 150:
-			var action=rr.randi_range(0,13);var dir=State.DIRS[rr.randi_range(0,3)]
+			var action=rr.randi_range(0,15);var dir=State.DIRS[rr.randi_range(0,3)]
 			var r=State.new();r.new_game();check(r.restore(JSON.parse_string(JSON.stringify(s.snapshot()))),"valid replay restore")
 			var oldturn=s.turn;var oldhp=s.player.hp;var oldinv=s.player.inventory.duplicate(true)
 			var result=do_action(s,action,dir);var result2=do_action(r,action,dir)

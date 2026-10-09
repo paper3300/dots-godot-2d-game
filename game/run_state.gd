@@ -535,7 +535,14 @@ func _pickup_coins() -> void:
 
 func _loot_ground() -> bool:
 	var found := false
-	for loot in maps[area].loot:
+	# Found rewards have priority over items the player deliberately left behind.
+	# This lets Drop free space without immediately picking the same stack back up.
+	var piles: Array = []
+	for dropped in [false, true]:
+		for loot in maps[area].loot:
+			if loot.get("dropped", false) == dropped:
+				piles.append(loot)
+	for loot in piles:
 		if _distance(position(), Vector2i(int(loot.x), int(loot.y))) > 1:
 			continue
 		if int(loot.coins) > 0:
@@ -604,6 +611,28 @@ func use_item(id: String) -> bool:
 	_finish_turn()
 	return true
 
+func drop_item(id: String, amount: int = 1) -> bool:
+	last_events.clear()
+	if dead or not ITEMS.has(id) or not player.inventory.has(id) or ITEMS[id].kind == "quest":
+		return false
+	if amount < 1 or amount > int(player.inventory[id]):
+		return false
+	var pile: Dictionary = {}
+	for loot in maps[area].loot:
+		if Vector2i(int(loot.x), int(loot.y)) == position() and loot.get("dropped", false):
+			pile = loot
+			break
+	if pile.is_empty():
+		pile = {"x": player.x, "y": player.y, "coins": 0, "items": {}, "dropped": true}
+		maps[area].loot.append(pile)
+	pile.items[id] = int(pile.items.get(id, 0)) + amount
+	player.inventory[id] = int(player.inventory[id]) - amount
+	if int(player.inventory[id]) == 0:
+		player.inventory.erase(id)
+	log_text("Dropped %s x%d. It stays here until you collect it." % [item_name(id), amount], "%s %d개를 내려놓았다. 다시 주울 때까지 여기에 남는다." % [item_name(id), amount])
+	_finish_turn()
+	return true
+
 func _consume(id: String) -> void:
 	player.inventory[id] -= 1
 	if int(player.inventory[id]) <= 0:
@@ -624,7 +653,7 @@ func buy(id: String) -> bool:
 func sell(id: String) -> bool:
 	if dead or not near_object("shop") or not player.inventory.has(id) or ITEMS[id].kind == "quest" or id == "water":
 		return false
-	var price := maxi(1, int(ITEMS[id].price) / 2)
+	var price := maxi(1, floori(float(ITEMS[id].price) / 2.0))
 	_consume(id)
 	player.coins += price
 	log_text("Sold %s for %d crowns." % [item_name(id), price], "%s 판매: %d 크라운." % [item_name(id), price])
@@ -774,6 +803,8 @@ func restore(data: Dictionary) -> bool:
 				return false
 		for loot in m.loot:
 			if not loot is Dictionary or not _valid_coords(loot) or not _is_number(loot.get("coins")) or not loot.get("items") is Dictionary:
+				return false
+			if loot.has("dropped") and not loot.dropped is bool:
 				return false
 			for id in loot.items:
 				if not ITEMS.has(id) or not _is_number(loot.items[id]) or int(loot.items[id]) < 1:

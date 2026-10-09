@@ -29,7 +29,7 @@ Stoneshard의 준비·턴제 전투·치료·귀환이라는 장르적 흐름에
 | Space / . | 대기, 기력 회복. 적도 행동 |
 | E | 옆의 게시판·NPC·상자·우물과 상호작용 |
 | G | 현재 칸 또는 인접한 전리품 줍기 |
-| I | 배낭. 물품 클릭으로 사용·장착 |
+| I | 배낭. 물품 클릭으로 정보 확인 후 사용·장착·내려놓기 |
 | B / T | 붕대 / 회복 물약 사용 |
 | K / L | 저장 / 저장 불러오기 확인 |
 | F1 | 여행 안내서 |
@@ -57,6 +57,8 @@ Godot 내장 실행 창의 F9는 에디터 일시정지 키와 충돌하므로, 
 - 회복 물약은 체력 25를 회복하지만 부상은 치료하지 않습니다.
 - 허기·갈증은 원정 중 천천히 증가합니다. 심해지면 체력을 잃습니다.
 - 배낭은 **8개의 종류별 스택 공간**과 별도의 의뢰 주머니를 사용합니다. 모든 물품이 같은 크기인 간소화 모델입니다.
+- 물품을 클릭하면 효과와 수량을 읽고 **사용 / 장착 / 1개 내려놓기 / 모두 내려놓기**를 선택할 수 있습니다. 정보창 열기·닫기는 턴을 쓰지 않습니다. 내려놓기는 한 턴을 쓰고 물품은 현재 칸에 남습니다.
+- 줍기는 새로 발견한 전리품을 일부러 내려놓은 물건보다 먼저 챙깁니다. 의뢰 물품은 버릴 수 없습니다.
 - 장착은 한 턴을 쓰며 이전 장비를 배낭에 보존합니다. 판매는 상점에서만 가능합니다. 무료로 보충하는 물은 판매할 수 없습니다.
 - 3개 기술의 재사용 대기시간은 사용 이후 4턴입니다. 경험치로 최대 4등급까지 성장합니다.
 
@@ -86,6 +88,8 @@ GODOT_BIN=godot4 sh scripts/smoke-test.sh
 - `assets/sprites/`: 독자 제작 스프라이트
 - `scripts/generate-art.py`: 스프라이트 생성 원본. 수정 시 Python + Pillow 필요
 - `tests/test_rules.gd`: 결정론적 회귀 테스트와 전체 모험
+- `tests/test_ui.gd`: 정보창, 저장/불러오기, 취소, 연속 클릭 회귀 검증
+- `tests/fuzz_*.gd`: 저장/재생 및 물품 보존에 대한 고정 시드 반복 검증
 - `docs/DESIGN.md`: 범위, 결정, 제한 사항
 - `docs/TESTING.md`: 검증 내역
 - `export_presets.cfg`: Linux, Windows, Web 내보내기 프리셋
@@ -102,6 +106,6 @@ GODOT_BIN=godot4 sh scripts/smoke-test.sh
 
 An original small tactical RPG. Open `project.godot` in Godot 4.6.3 and press F5. Switch to English on the title screen. Accept the board's contract, prepare supplies, follow the east road, recover the bell from the ruin's northeast chamber, and return for payment.
 
-WASD/arrows move and attack; 1/2/3 select skills, Space waits, E interacts, G loots, I opens the pack, B bandages, T uses a tonic, K saves, L restores, and F1 opens the field guide. Each valid world action advances enemies once. Invalid actions and UI browsing never advance combat. Mouse auto-walking stops at visible danger.
+WASD/arrows move and attack; 1/2/3 select skills, Space waits, E interacts, G loots, I opens the pack (click an item for Use/Equip/Drop), B bandages, T uses a tonic, K saves, L restores, and F1 opens the field guide. Each valid world action advances enemies once. Invalid actions and UI browsing never advance combat. Mouse auto-walking stops at visible danger.
 
 This is a handcrafted three-area vertical slice, not a clone or a full-scale commercial RPG. See the Korean sections and `docs/DESIGN.md` for implementation scope. Third-party font licensing is recorded in `THIRD_PARTY_NOTICES.md`.

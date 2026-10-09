@@ -76,14 +76,71 @@ func run() -> void:
 	press(KEY_L)
 	ui._button_action("load")
 	check(ui.state.turn == 0 and ui.panel.is_empty(),"confirmed load restores actual initial save")
+	var turn_before_detail: int = ui.state.turn
+	ui._button_action("inspect:bandage")
+	check(ui.panel=="item" and ui.detail_item=="bandage" and ui.state.turn==turn_before_detail,"item detail opens without consuming a turn")
+	press(KEY_SPACE)
+	check(ui.state.turn==turn_before_detail,"world hotkeys do not act behind item panel")
+	press(KEY_ESCAPE)
+	check(ui.panel.is_empty() and ui.detail_item.is_empty() and ui.state.turn==turn_before_detail,"closing item panel consumes no turn")
+	ui._button_action("inspect:bandage")
+	ui._button_action("item_use")
+	check(ui.panel=="item" and ui.state.player.inventory.bandage==4 and ui.state.turn==turn_before_detail,"unneeded item use stays in detail without consuming item or turn")
+	ui._button_action("close")
+	ui.pointer_guard_until=0
+	ui._button_action("inspect:bandage")
+	ui.buttons=[{"rect":Rect2(400,607,480,34),"action":"close","enabled":true}]
+	ui._pointer_press(Vector2(500,624))
+	ui.buttons.clear()
+	ui._pointer_press(Vector2(500,624))
+	check(ui.state.turn==turn_before_detail and ui.move_path.is_empty(),"double tap on Back does not leak into map or queue walking")
+	ui.pointer_guard_until=0
+	ui.state.player.hp=40
+	ui._button_action("inspect:tonic")
+	ui.buttons=[{"rect":Rect2(400,483,480,43),"action":"item_use","enabled":true}]
+	var tap := InputEventMouseButton.new()
+	tap.button_index=MOUSE_BUTTON_LEFT
+	tap.pressed=true
+	tap.position=Vector2(500,505)
+	ui._pointer_press(tap.position)
+	check(ui.panel.is_empty() and ui.state.player.inventory.tonic==1 and ui.state.turn==turn_before_detail+1,"explicit Use button consumes one item and turn")
+	ui.buttons.clear()
+	ui._pointer_press(tap.position)
+	check(ui.state.turn==turn_before_detail+1 and ui.move_path.is_empty(),"double tap after item use cannot leak into map movement")
+	ui.pointer_guard_until=0
+	ui._button_action("inspect:ration")
+	ui._button_action("item_drop_all")
+	var after_drop: int=ui.state.turn
+	check(not ui.state.player.inventory.has("ration") and ui.state.maps.village.loot[0].items.ration==3,"Drop stack leaves every item on ground")
+	ui._button_action("item_drop_all")
+	check(ui.state.turn==after_drop and ui.state.maps.village.loot[0].items.ration==3,"stale repeated drop action cannot repeat a turn or duplicate loot")
+	ui._button_action("loot")
+	check(ui.state.player.inventory.ration==3 and ui.state.turn==after_drop+1,"dropped stack can be collected again through visible Loot action")
+	ui.state.add_item("fine_sword")
+	ui._button_action("inspect:fine_sword")
+	ui._button_action("item_use")
+	check(ui.state.player.weapon=="fine_sword" and ui.state.player.inventory.sword==1,"Equip detail action preserves displaced weapon")
+	ui.state.add_item("bell")
+	ui._button_action("inspect:bell")
+	var quest_turn: int=ui.state.turn
+	ui._button_action("item_drop_one")
+	check(ui.state.player.inventory.bell==1 and ui.state.turn==quest_turn,"quest detail refuses drop without advancing turn")
+	ui._button_action("close")
 	ui.state.dead = true
 	ui.state.player.hp = 0
 	ui._after_action(true)
 	check(ui.panel == "death" and ui.move_path.is_empty(),"death clears movement and opens recovery")
 	press(KEY_SPACE)
-	check(ui.state.turn == 0,"dead keyboard action cannot advance")
+	check(ui.state.turn == quest_turn,"dead keyboard action cannot advance")
 	ui._button_action("load")
 	check(not ui.state.dead and ui.panel.is_empty(),"death load returns to live play")
+	ui.state.language="en"
+	ui.state.quest="recovered"
+	check(not ui._relic_present() and "recovered" in ui._board_story(),"recovered relic is absent and board acknowledges possession")
+	ui.state.quest="complete"
+	check(not ui._relic_present() and "reward has been paid" in ui._board_story() and not "missing" in ui._board_story(),"completed board and empty relic plinth reflect completed state")
+	ui.state.quest="active"
+	check(ui._relic_present() and "missing" in ui._board_story(),"active contract still displays the guarded relic")
 	DirAccess.remove_absolute(ui.State.SAVE_PATH)
 	print("UI FLOW TESTS: %d checks, %d failures" % [checks,failures])
 	ui.queue_free()
